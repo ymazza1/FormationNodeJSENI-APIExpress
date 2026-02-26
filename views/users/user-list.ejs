@@ -7,10 +7,10 @@
     <title>Document</title>
 </head>
 <body class="container">
-        <h1>My cities form country <mark><%= country.name %></mark></h1>
+        <h1>Users with role <mark><%= role.name %></mark></h1>
     <ul class="list-group">
-      <% cities.forEach((city) => { %>
-      <li class="list-group-item"><%= city.name %></li>
+      <% users.forEach((user) => { %>
+      <li class="list-group-item"><%= user.name %></li>
       <% }) %>
     </ul>
 </body>

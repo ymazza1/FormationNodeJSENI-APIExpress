@@ -6,11 +6,20 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <title>Document</title>
 </head>
-<body class="container">
-        <h1>My cities form country <mark><%= country.name %></mark></h1>
+<body class="container" >
+        <h1>Roles</h1>
     <ul class="list-group">
-      <% cities.forEach((city) => { %>
-      <li class="list-group-item"><%= city.name %></li>
+      <% roles.forEach((role) => { %>
+      <li class="list-group-item">
+        <a href="/roles/<%= role.uuid%>/users">
+        <%= role.name %>
+        </a>
+        - 
+                <a href="/roles/<%= role.uuid%>/user-list">
+        <%= role.uuid %>
+        </a>
+        
+    </li>
       <% }) %>
     </ul>
 </body>

@@ -1,13 +1,13 @@
 "use strict";
 
-const { body, validationResult } = require("express-validator");
+const { body, check, validationResult } = require("express-validator");
 const express = require("express");
 const app = express();
 const port = 3000;
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 const { v4: uuidv4 } = require("uuid");
-const { MongoClient } = require("mongodb");
+const { MongoClient, Admin } = require("mongodb");
 const mongoose = require("mongoose");
 const { name } = require("ejs");
 
@@ -42,10 +42,30 @@ const Country = mongoose.model("Country", {
     },
   ],
 });
+const User = mongoose.model("User", {
+  name: String,
+  uuid: String,
+  role: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Role",
+  },
+});
+const Role = mongoose.model("Role", {
+  name: String,
+  uuid: String,
+  users: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
+});
 
 async function database() {
   await Country.deleteMany();
   await City.deleteMany();
+  await Role.deleteMany();
+  await User.deleteMany();
   const france = new Country({
     name: "France",
     uuid: uuidv4(),
@@ -77,6 +97,52 @@ async function database() {
   await berlin.save();
   allemagne.cities.push(berlin);
   await allemagne.save();
+
+  const admin = new Role({
+    name: "Administrateur",
+    uuid: uuidv4(),
+  });
+  const dev = new Role({
+    name: "Developpeur",
+    uuid: uuidv4(),
+  });
+  const user = new Role({
+    name: "Utilisateur",
+    uuid: uuidv4(),
+  });
+  const Tom = new User({
+    name: "Tom",
+    uuid: uuidv4(),
+    role: dev._id,
+  });
+  Tom.save();
+  const Jerry = new User({
+    name: "Jerry",
+    uuid: uuidv4(),
+    role: dev._id,
+  });
+  Jerry.save();
+  const Wanda = new User({
+    name: "Wanda",
+    uuid: uuidv4(),
+    role: admin._id,
+  });
+  Wanda.save();
+  const Ryu = new User({
+    name: "Ryu",
+    uuid: uuidv4(),
+    role: user._id,
+  });
+  Ryu.save();
+
+  admin.users.push(Wanda);
+  dev.users.push(Tom);
+  dev.users.push(Jerry);
+  user.users.push(Ryu);
+  admin.save();
+  dev.save();
+  user.save();
+
   await City.aggregate([
     {
       $lookup: {
@@ -116,38 +182,34 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
 app.get("/cities", (req, res) => {
   City.find().then((cities) => {
-    res.render("cities/index", { cities: cities });
+    res.json(cities);
   });
 });
 
 app.post(
   "/cities",
-  body("city")
+  check("name")
     .isLength({ min: 3 })
-    .withMessage("City must be at least 3 characters long"),
+    .withMessage("City name must be at least 3 characters long"),
   async (req, res) => {
-    const errors = validationResult(req);
+    console.log("req body", req.body);
 
-    await City.find().then((cities) => {
-      if (!errors.isEmpty()) {
-        return res.status(422).render("cities.ejs", {
-          errors: errors.array(),
-          cities: cities,
-          city: req.body.city,
-        });
-      }
-      City.create({
-        name: req.body.city,
-        uuid: uuidv4(),
-      });
-      res.redirect("/cities");
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(422).json(errors.array());
+    }
+    let city = await City.create({
+      name: req.body.name,
+      uuid: uuidv4(),
     });
+    return res.status(201).json(city);
   },
 );
 
@@ -187,7 +249,7 @@ app.get("/countries", async (req, res) => {
 });
 
 app.get("/countries/:uuid/cities", async (req, res) => {
-  const country = await await Country.findOne({ uuid: req.params.uuid });
+  const country = await Country.findOne({ uuid: req.params.uuid });
   await City.aggregate([
     {
       $lookup: {
@@ -207,6 +269,80 @@ app.get("/countries/:uuid/cities", async (req, res) => {
     res.render("countries/cities", { cities: cities, country: country });
   });
 });
+
+app.get("/roles", async (req, res) => {
+  Role.find().then((roles) => {
+    res.render("users/roles", { roles: roles });
+  });
+});
+app.get("/users", async (req, res) => {
+  const roles = await Role.find();
+  await User.find().then((users) => {
+    res.render("users/users", { users: users, roles: roles });
+  });
+});
+app.post("/role/user_add", async (req, res) => {
+  console.log("body ", res.body);
+
+  const targetRole = Role.findOne({ uuid: req.body.role.uuid });
+  const user = await User.create({
+    name: req.body.name,
+    uuid: uuidv4(),
+    role: targetRole._id,
+  });
+  await user.save();
+  targetRole.users.push(user);
+  Role.findOneAndUpdate(
+    { uuid: req.params.uuid },
+    { $push: { users: user._id } },
+  );
+
+  res.redirect("/users");
+});
+app.get("/roles/:uuid/users", async (req, res) => {
+  const role = await Role.findOne({ uuid: req.params.uuid });
+  await User.aggregate([
+    {
+      $lookup: {
+        from: "roles",
+        localField: "role",
+        foreignField: "_id",
+        as: "role",
+      },
+    },
+    {
+      $unwind: "$role",
+    },
+    {
+      $match: { "role.uuid": req.params.uuid },
+    },
+  ]).then((users) => {
+    res.render("users/users-by-role", { users: users, role: role });
+  });
+});
+app.get("/roles/:uuid/user-list", async (req, res) => {
+  console.log("test");
+
+  await Role.aggregate([
+    {
+      $match: { uuid: req.params.uuid },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "users",
+        foreignField: "_id",
+        as: "users",
+      },
+    },
+  ]).then((role) => {
+    res.render("users/user-list", { role: role[0], users: role[0].users });
+    console.log("role! : ", role);
+
+    console.log("users! : ", role[0].users);
+  });
+});
+
 app.use((req, res) => {
   res.status(404).send("404 :page non trouvée");
 });
