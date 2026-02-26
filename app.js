@@ -65,6 +65,18 @@ async function database() {
   france.cities.push(toulouse);
   france.cities.push(rennes);
   await france.save();
+  const allemagne = new Country({
+    name: "Allemagne",
+    uuid: uuidv4(),
+  });
+  const berlin = new City({
+    name: "Berlin",
+    uuid: uuidv4(),
+    country: allemagne._id,
+  });
+  await berlin.save();
+  allemagne.cities.push(berlin);
+  await allemagne.save();
   await City.aggregate([
     {
       $lookup: {
@@ -168,6 +180,33 @@ app.post("/cities/:uuid/update", async (req, res) => {
   res.redirect("/cities");
 });
 
+app.get("/countries", async (req, res) => {
+  Country.find().then((countries) => {
+    res.render("countries/index", { countries: countries });
+  });
+});
+
+app.get("/countries/:uuid/cities", async (req, res) => {
+  const country = await await Country.findOne({ uuid: req.params.uuid });
+  await City.aggregate([
+    {
+      $lookup: {
+        from: "countries",
+        localField: "country",
+        foreignField: "_id",
+        as: "country",
+      },
+    },
+    {
+      $unwind: "$country",
+    },
+    {
+      $match: { "country.uuid": req.params.uuid },
+    },
+  ]).then((cities) => {
+    res.render("countries/cities", { cities: cities, country: country });
+  });
+});
 app.use((req, res) => {
   res.status(404).send("404 :page non trouvée");
 });
