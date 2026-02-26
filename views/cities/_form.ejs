@@ -1,0 +1,15 @@
+        <div class="mb-3">
+            <label for="city" class="form-label">City</label>
+            <input type="text" 
+            class="form-control <%= typeof errors !== 'undefined' && errors.length > 0 ?
+            'is-invalid' : '' %>" 
+            id="city" name="city"
+            value="<%= typeof city !== 'undefined' ? city.name : '' %>">
+            <div class="invalid-feedback">
+                <% if (typeof errors !== 'undefined' && errors.length > 0){ %> <%=
+                 errors[0].msg %> 
+               <% } %>
+            </div>
+        </div>
+        <button class="btn btn-primary" type="submit">Submit</button>
+    

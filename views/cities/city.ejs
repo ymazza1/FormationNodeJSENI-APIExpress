@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1><%= city.name %></h1>
+    <span> <%= city.country.name %> </span>
+    <form action="/cities/<%= city.uuid %>/update" method="POST">
+      <%- include('_form') %>
+    </form>
+
+    <form action="/cities/<%= city.uuid %>/delete" method="POST">
+      <button class="btn btn-danger">Supprimer</button>
+    </form>
+  </body>
+</html>
