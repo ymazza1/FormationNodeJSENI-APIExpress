@@ -12,6 +12,8 @@ const mongoose = require("mongoose");
 const { name } = require("ejs");
 const jwt = require("jsonwebtoken");
 const { SECRET } = require("./dotenv.js");
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger_output.json");
 
 const users = [
   {
@@ -390,6 +392,8 @@ app.get("/roles/:uuid/user-list", async (req, res) => {
     console.log("users! : ", role[0].users);
   });
 });
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use((req, res) => {
   res.status(404).send("404 :page non trouvée");
