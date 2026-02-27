@@ -171,7 +171,7 @@ async function database() {
     console.log("cities: ", cities);
   });
 }
-database();
+//database();
 
 client
   .connect()
