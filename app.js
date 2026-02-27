@@ -10,6 +10,16 @@ const { v4: uuidv4 } = require("uuid");
 const { MongoClient, Admin } = require("mongodb");
 const mongoose = require("mongoose");
 const { name } = require("ejs");
+const jwt = require("jsonwebtoken");
+const { SECRET } = require("./dotenv.js");
+
+const users = [
+  {
+    id: 1,
+    username: "admin",
+    password: "admin",
+  },
+];
 
 const uri = "mongodb://localhost:27017/cities_app";
 const client = new MongoClient(uri);
@@ -187,6 +197,45 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
+app.post("/authentication_token", async (req, res, next) => {
+  const user = users.find(
+    (u) => u.username === req.body.username && u.password === req.body.password,
+  );
+  if (!user) {
+    return res.status(400).json({ message: "Mauvais login et mot de passe" });
+  }
+  const token = jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+    },
+    SECRET,
+    { expiresIn: "3 hours" },
+  );
+  return res.json({ access_token: token });
+});
+
+function extractBearerToken(headerValue) {
+  if (typeof headerValue !== "string") {
+    return false;
+  }
+  const matches = headerValue.match(/(bearer)\s+(\S+)/i);
+  return matches && matches[2];
+}
+function checkTokenMiddleware(req, res, next) {
+  const token =
+    req.headers.authorization && extractBearerToken(req.headers.authorization);
+  if (!token) {
+    return res.status(401).json({ message: "Il faut un token" });
+  }
+  jwt.verify(token, SECRET, (err, decodedToken) => {
+    if (err) {
+      res.status(401).json({ message: "Mauvais token" });
+    } else {
+      next();
+    }
+  });
+}
 app.get("/cities", (req, res) => {
   City.find().then((cities) => {
     res.json(cities);
@@ -195,12 +244,11 @@ app.get("/cities", (req, res) => {
 
 app.post(
   "/cities",
+  checkTokenMiddleware,
   check("name")
     .isLength({ min: 3 })
     .withMessage("City name must be at least 3 characters long"),
   async (req, res) => {
-    console.log("req body", req.body);
-
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(422).json(errors.array());
